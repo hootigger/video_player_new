@@ -382,6 +382,7 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
 - (void)play {
   _isPlaying = YES;
   [self updatePlayingState];
+  NSLog(@"xxxxxxxxxxxxxxx");
 }
 
 - (void)pause {
