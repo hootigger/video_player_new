@@ -44,6 +44,9 @@
 - (instancetype)initWithURL:(NSURL *)url
                frameUpdater:(FLTFrameUpdater *)frameUpdater
                 httpHeaders:(nonnull NSDictionary<NSString *, NSString *> *)headers;
+
+@property(nonatomic,assign) float lastRate;
+@property(nonatomic,assign) NSTimeInterval lastTime;
 @end
 
 static void *timeRangeContext = &timeRangeContext;
@@ -322,7 +325,18 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
     return;
   }
   if (_isPlaying) {
-    [_player play];
+    if (!(_player.rate != 0)) {
+          [_player play];
+    }
+    NSTimeInterval now = CACurrentMediaTime();
+      if (now - _lastTime < 0.1) {
+          
+          return;
+      }
+      _lastTime = now;
+      if (_lastRate != 0 && _player.rate != _lastRate) {
+          _player.rate = _lastRate;
+      }
   } else {
     [_player pause];
   }
@@ -382,7 +396,6 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
 - (void)play {
   _isPlaying = YES;
   [self updatePlayingState];
-  NSLog(@"xxxxxxxxxxxxxxx");
 }
 
 - (void)pause {
@@ -407,7 +420,15 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
   // version that handles async calls.
   [_player seekToTime:CMTimeMake(location, 1000)
       toleranceBefore:kCMTimeZero
-       toleranceAfter:kCMTimeZero];
+       toleranceAfter:kCMTimeZero
+       completionHandler:^(BOOL finished) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            if (self.isPlaying && self.player.rate != self.lastRate) {
+                self.player.rate = self.lastRate;
+            }
+//            NSLog(@"seekTo  end..rate = %lf",self->_player.rate);
+        });
+    }];
 }
 
 - (void)setIsLooping:(BOOL)isLooping {
@@ -438,7 +459,8 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
     }
     return;
   }
-
+  
+  _lastRate = speed;
   _player.rate = speed;
 }
 
