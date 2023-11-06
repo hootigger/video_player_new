@@ -47,6 +47,7 @@
 
 @property(nonatomic,assign) float lastRate;
 @property(nonatomic,assign) NSTimeInterval lastTime;
+@property(nonatomic,assign) BOOL isInterruption;
 @end
 
 static void *timeRangeContext = &timeRangeContext;
@@ -98,6 +99,10 @@ static void *playbackBufferFullContext = &playbackBufferFullContext;
                                            selector:@selector(itemDidPlayToEndTime:)
                                                name:AVPlayerItemDidPlayToEndTimeNotification
                                              object:item];
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(didInterruption:)
+                                                 name:AVAudioSessionInterruptionNotification
+                                               object:nil];
 }
 
 - (void)itemDidPlayToEndTime:(NSNotification *)notification {
@@ -109,6 +114,30 @@ static void *playbackBufferFullContext = &playbackBufferFullContext;
       _eventSink(@{@"event" : @"completed"});
     }
   }
+}
+
+- (void)didInterruption:(NSNotification *)notification {
+    if (!notification.userInfo) {
+        return;
+    }
+    NSNumber *typeNum = notification.userInfo[AVAudioSessionInterruptionTypeKey];
+    if (!typeNum) {
+        return;
+    }
+    NSNumber *optionsNum = notification.userInfo[AVAudioSessionInterruptionOptionKey];
+    AVAudioSessionInterruptionType type = (AVAudioSessionInterruptionType)[typeNum unsignedIntValue];
+    AVAudioSessionInterruptionOptions options = (AVAudioSessionInterruptionOptions)[optionsNum unsignedIntValue];
+    if (type == AVAudioSessionInterruptionTypeBegan) {
+        if (self.isPlaying) {
+            self.isInterruption = YES;
+            [self pause];
+        }
+    } else if (type == AVAudioSessionInterruptionTypeEnded && options == AVAudioSessionInterruptionOptionShouldResume) {
+        if (self.isInterruption) {
+            self.isInterruption = NO;
+            [self play];
+        }
+    }
 }
 
 const int64_t TIME_UNSET = -9223372036854775807;
